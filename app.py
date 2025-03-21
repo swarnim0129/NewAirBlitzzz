@@ -87,6 +87,128 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Custom CSS
+st.markdown("""
+    <style>
+    /* General styles */
+    .stApp {
+        background-color: white;
+        color: #333;
+    }
+    
+    /* Sidebar styles */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Card styles */
+    .card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Chatbot styles */
+    .chatbot-container {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .chatbot-header {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .chatbot-messages {
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 1rem;
+    }
+    
+    .user-message {
+        background-color: #e3f2fd;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        margin-left: 2rem;
+    }
+    
+    .assistant-message {
+        background-color: #f5f5f5;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        margin-right: 2rem;
+    }
+    
+    .message-content {
+        color: #333;
+    }
+    
+    .quick-facts {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .fact-item {
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    /* Button styles */
+    .stButton>button {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    
+    .stButton>button:hover {
+        background-color: #1976D2;
+    }
+    
+    /* Input styles */
+    .stTextInput>div>div>input {
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+    
+    /* Metric styles */
+    .metric-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2196F3;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Sidebar navigation
 with st.sidebar:
     st.title("🌍 Air Quality Dashboard")
@@ -258,53 +380,64 @@ elif selected == "Chatbot":
         color_name="blue-70"
     )
     
-    # Display quick facts in a card-like container
-    st.subheader("Quick Facts")
-    with st.container():
-        st.markdown("""
-            <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
-        """, unsafe_allow_html=True)
-        facts = chatbot.get_quick_facts()
-        st.write(facts)
-        st.markdown("</div>", unsafe_allow_html=True)
+    # Chatbot section
+    st.subheader("AI Assistant")
+    st.markdown("""
+        <div class="chatbot-container">
+            <div class="chatbot-header">
+                <h4>Ask me anything about air quality!</h4>
+            </div>
+            <div class="chatbot-messages">
+    """, unsafe_allow_html=True)
     
-    # Chat interface
-    st.subheader("Chat with AI Assistant")
+    # Initialize chat history
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
     
     # Display chat history
-    for message in chatbot.get_chat_history():
-        if message['user']:
-            st.markdown(f"""
-                <div style='background-color: #E3F2FD; padding: 1rem; border-radius: 4px; margin-bottom: 0.5rem;'>
-                    <strong>👤 You:</strong> {message['user']}
-                </div>
-            """, unsafe_allow_html=True)
-        if message['assistant']:
-            st.markdown(f"""
-                <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; margin-bottom: 0.5rem;'>
-                    <strong>🤖 Assistant:</strong> {message['assistant']}
-                </div>
-            """, unsafe_allow_html=True)
+    for message in st.session_state.chat_history:
+        with st.container():
+            if message["role"] == "user":
+                st.markdown(f"""
+                    <div class="user-message">
+                        <div class="message-content">{message["content"]}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                    <div class="assistant-message">
+                        <div class="message-content">{message["content"]}</div>
+                    </div>
+                """, unsafe_allow_html=True)
     
     # Chat input
-    user_input = st.text_input("Ask a question about air quality:")
-    if user_input:
-        response = chatbot.get_response(user_input)
-        st.markdown(f"""
-            <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; margin-top: 1rem;'>
-                <strong>🤖 Assistant:</strong> {response}
-            </div>
-        """, unsafe_allow_html=True)
+    user_input = st.text_input("Type your message here...")
+    if st.button("Send"):
+        if user_input:
+            # Add user message to chat history
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            
+            # Get AI response
+            response = chatbot.generate_response(user_input)
+            st.session_state.chat_history.append({"role": "assistant", "content": response})
+            
+            # Rerun to update chat display
+            st.rerun()
     
-    # Health advice in a card-like container
-    st.subheader("Health Advice")
-    with st.container():
-        st.markdown("""
-            <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
-        """, unsafe_allow_html=True)
-        health_advice = chatbot.get_health_advice()
-        st.write(health_advice)
-        st.markdown("</div>", unsafe_allow_html=True)
+    # Quick facts
+    st.markdown("""
+        <div class="quick-facts">
+            <h4>Quick Facts</h4>
+            <div class="facts-content">
+    """, unsafe_allow_html=True)
+    
+    try:
+        facts = chatbot.get_quick_facts()
+        st.markdown(f"<div class='fact-item'>{facts}</div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Error generating quick facts: {str(e)}")
+    
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 elif selected == "Reports":
     colored_header(

@@ -4,39 +4,40 @@ import os
 from dotenv import load_dotenv
 import streamlit as st
 
+# Load environment variables
+load_dotenv()
+
+# Configure Gemini API
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    st.error("GEMINI_API_KEY not found in environment variables. Please add it to your .env file.")
+    st.stop()
+
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+except Exception as e:
+    st.error(f"Error initializing Gemini model: {str(e)}")
+    st.stop()
+
 class AirQualityChatbot:
     def __init__(self):
-        load_dotenv()
         self.data_processor = AirQualityDataProcessor()
-        self.GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-        self.model = None
-        self.initialize_model()
+        self.context = """You are an expert air quality analyst and environmental scientist. 
+        Your role is to provide accurate, helpful information about air quality, pollution, 
+        and environmental health. Always base your responses on scientific evidence and current 
+        environmental standards."""
         
         # Initialize chat history
         self.chat_history = []
         
-    def initialize_model(self):
-        """Initialize the Gemini model with proper error handling"""
-        if not self.GEMINI_API_KEY:
-            st.error("GEMINI_API_KEY not found in environment variables")
-            return
-            
+    def generate_response(self, user_input):
         try:
-            genai.configure(api_key=self.GEMINI_API_KEY)
-            self.model = genai.GenerativeModel('gemini-pro')
-        except Exception as e:
-            st.error(f"Error initializing Gemini model: {str(e)}")
-        
-    def get_response(self, user_input):
-        """Get response from the chatbot"""
-        if not self.model:
-            return "I apologize, but I'm currently unavailable. Please check the API configuration."
-            
-        try:
-            response = self.model.generate_content(user_input)
+            prompt = f"{self.context}\n\nUser: {user_input}\n\nAssistant:"
+            response = model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"I apologize, but I encountered an error: {str(e)}"
+            return f"I apologize, but I encountered an error: {str(e)}. Please try again later."
     
     def _get_context(self):
         """Get current context about air quality data"""
@@ -74,20 +75,16 @@ class AirQualityChatbot:
         self.chat_history = []
     
     def get_quick_facts(self):
-        """Get quick facts about air quality"""
-        if not self.model:
-            return "Quick facts are currently unavailable. Please check the API configuration."
-            
-        prompt = "Please provide 3 interesting facts about air quality and its impact on health."
         try:
-            response = self.model.generate_content(prompt)
+            prompt = f"{self.context}\n\nPlease provide 3 quick facts about air quality and pollution."
+            response = model.generate_content(prompt)
             return response.text
         except Exception as e:
             return f"Error generating quick facts: {str(e)}"
     
     def get_health_advice(self):
         """Get health advice based on current air quality"""
-        if not self.model:
+        if not model:
             return "Sorry, the AI model is not properly configured. Please check the API key and try again."
             
         try:
@@ -110,7 +107,7 @@ class AirQualityChatbot:
             3. Recommended activities or restrictions
             """
             
-            response = self.model.generate_content(prompt)
+            response = model.generate_content(prompt)
             return response.text
         except Exception as e:
             st.error(f"Error generating health advice: {str(e)}")
@@ -118,7 +115,7 @@ class AirQualityChatbot:
     
     def get_recommendations(self, pollutant_levels):
         """Get personalized recommendations based on pollutant levels"""
-        if not self.model:
+        if not model:
             return "Recommendations are currently unavailable. Please check the API configuration."
             
         prompt = f"""
@@ -136,7 +133,7 @@ class AirQualityChatbot:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = model.generate_content(prompt)
             return response.text
         except Exception as e:
             return f"Error generating recommendations: {str(e)}" 

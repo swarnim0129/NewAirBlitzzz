@@ -68,16 +68,26 @@ class AirQualityDataProcessor:
         """Get the most recent n samples from the dataset"""
         return self.df.sort_values('timestamp', ascending=False).head(n_samples)
     
-    def preprocess_data(self, df=None):
-        """Preprocess data for model training"""
-        if df is None:
-            df = self.df
-            
-        # Handle missing values
-        df = df.fillna(df.mean())
+    def preprocess_data(self):
+        """Preprocess the data for training"""
+        df = self.df.copy()
         
-        # Scale features
-        X = self.scaler.fit_transform(df[self.feature_columns])
+        # Convert air quality categories to numeric values
+        quality_map = {
+            'Good': 0,
+            'Moderate': 1,
+            'Poor': 2,
+            'Hazardous': 3
+        }
+        df['air_quality'] = df['air_quality'].map(quality_map)
+        
+        # Fill missing values with mean for numeric columns only
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        df[numeric_columns] = df[numeric_columns].fillna(df[numeric_columns].mean())
+        
+        # Select features for training
+        feature_columns = ['temperature', 'humidity', 'pm25', 'pm10', 'no2', 'so2', 'co']
+        X = df[feature_columns]
         y = df['air_quality']
         
         return X, y
