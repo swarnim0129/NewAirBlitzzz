@@ -271,8 +271,17 @@ if selected == "Dashboard":
         st.markdown("""
             <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
         """, unsafe_allow_html=True)
-        insights = predictor.get_ai_insights(latest_data)
-        st.write(insights)
+        try:
+            # Get prediction and probabilities first
+            features = pd.DataFrame([latest_data])
+            prediction, probabilities = predictor.predict_air_quality(features)
+            if prediction is not None and probabilities is not None:
+                insights = predictor.get_ai_insights(features.iloc[0], prediction, probabilities)
+                st.write(insights)
+            else:
+                st.error("Unable to generate insights. Please try again later.")
+        except Exception as e:
+            st.error(f"Error generating insights: {str(e)}")
         st.markdown("</div>", unsafe_allow_html=True)
 
 elif selected == "AI Predictions":
@@ -300,47 +309,118 @@ elif selected == "AI Predictions":
     
     # Make prediction
     if st.button("Predict Air Quality"):
-        features = pd.DataFrame([{
-            'temperature': temperature,
-            'humidity': humidity,
-            'pm25': pm25,
-            'pm10': pm10,
-            'no2': no2,
-            'so2': so2,
-            'co': co,
-            'industrial_proximity': industrial_proximity,
-            'population_density': 1000,  # Default value
-            'latitude': 40.7128,  # Default value
-            'longitude': -74.0060  # Default value
-        }])
-        
-        prediction, probabilities = predictor.predict_air_quality(features)
-        
-        # Display results in a card-like container
-        with st.container():
-            st.markdown("""
-                <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
-            """, unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
+        try:
+            features = pd.DataFrame([{
+                'temperature': temperature,
+                'humidity': humidity,
+                'pm25': pm25,
+                'pm10': pm10,
+                'no2': no2,
+                'so2': so2,
+                'co': co,
+                'industrial_proximity': industrial_proximity,
+                'population_density': 1000,  # Default value
+                'latitude': 40.7128,  # Default value
+                'longitude': -74.0060  # Default value
+            }])
             
-            with col1:
-                st.metric("Predicted Air Quality", prediction)
+            prediction, probabilities = predictor.predict_air_quality(features)
             
-            with col2:
-                confidence = max(probabilities) * 100
-                st.metric("Confidence", f"{confidence:.1f}%")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Display recommendations
-        st.subheader("Recommendations")
-        with st.container():
-            st.markdown("""
-                <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
-            """, unsafe_allow_html=True)
-            recommendations = predictor.get_recommendations(features.iloc[0])
-            st.write(recommendations)
-            st.markdown("</div>", unsafe_allow_html=True)
+            if prediction is not None and probabilities is not None:
+                # Display results in a card-like container
+                with st.container():
+                    st.markdown("""
+                        <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
+                    """, unsafe_allow_html=True)
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.metric("Predicted Air Quality", prediction)
+                    
+                    with col2:
+                        confidence = max(probabilities) * 100
+                        st.metric("Confidence", f"{confidence:.1f}%")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Display recommendations
+                st.subheader("Recommendations")
+                with st.container():
+                    st.markdown("""
+                        <div style='background-color: #F5F5F5; padding: 1rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>
+                    """, unsafe_allow_html=True)
+                    recommendations = predictor.get_recommendations(features.iloc[0])
+                    st.write(recommendations)
+                    st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.error("Unable to make prediction. Please check the input parameters and try again.")
+        except Exception as e:
+            st.error(f"Error during prediction: {str(e)}")
+
+    # 3D Boxplot
+    st.subheader("3D Boxplot of Pollutant Levels")
+    pollutant = st.selectbox(
+        "Select Pollutant for Boxplot",
+        ['pm25', 'pm10', 'no2', 'so2', 'co']
+    )
+    fig = visualizer.create_3d_boxplot(pollutant)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Force-directed graph
+    st.subheader("Pollutant Relationship Network")
+    fig = visualizer.create_force_directed_graph()
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 3D Bar chart
+    st.subheader("3D Bar Chart of Average Pollutant Levels")
+    fig = visualizer.create_3d_bar_chart()
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Add new 3D visualizations
+    st.subheader("3D Surface Plot of Pollution Levels")
+    pollutant = st.selectbox(
+        "Select Pollutant for Surface Plot",
+        ['pm25', 'pm10', 'no2', 'so2', 'co']
+    )
+    param1 = st.selectbox(
+        "Select First Parameter for Surface",
+        ['temperature', 'humidity', 'industrial_proximity']
+    )
+    param2 = st.selectbox(
+        "Select Second Parameter for Surface",
+        ['temperature', 'humidity', 'industrial_proximity']
+    )
+    if param1 != param2:
+        try:
+            fig = visualizer.create_3d_surface_plot(pollutant, param1, param2)
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating surface plot: {str(e)}")
+    
+    st.subheader("3D Scatter Plot of Pollutants")
+    pollutant = st.selectbox(
+        "Select Pollutant for Scatter Plot",
+        ['pm25', 'pm10', 'no2', 'so2', 'co']
+    )
+    param1 = st.selectbox(
+        "Select First Parameter for Scatter",
+        ['temperature', 'humidity', 'industrial_proximity']
+    )
+    param2 = st.selectbox(
+        "Select Second Parameter for Scatter",
+        ['temperature', 'humidity', 'industrial_proximity']
+    )
+    if param1 != param2:
+        try:
+            fig = visualizer.create_3d_scatter_plot(pollutant, param1, param2)
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating scatter plot: {str(e)}")
+    
+    # Correlation heatmap
+    st.subheader("Pollutant Correlation Heatmap")
+    fig = visualizer.create_heatmap()
+    st.plotly_chart(fig, use_container_width=True)
 
 elif selected == "3D Visualizations":
     colored_header(

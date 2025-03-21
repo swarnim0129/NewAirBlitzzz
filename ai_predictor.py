@@ -9,23 +9,18 @@ from dotenv import load_dotenv
 
 class AirQualityPredictor:
     def __init__(self):
-        load_dotenv()
         self.data_processor = AirQualityDataProcessor()
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.scaler = StandardScaler()
         self.is_trained = False
         
-        # Configure Gemini AI
+        # Initialize Gemini API
+        load_dotenv()
         GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
         if GEMINI_API_KEY:
-            try:
-                genai.configure(api_key=GEMINI_API_KEY)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
-            except Exception as e:
-                print(f"Error configuring Gemini API: {str(e)}")
-                self.gemini_model = None
+            genai.configure(api_key=GEMINI_API_KEY)
+            self.gemini_model = genai.GenerativeModel('gemini-pro')
         else:
-            print("GEMINI_API_KEY not found in environment variables")
             self.gemini_model = None
         
         # Define air quality categories and their numeric values
@@ -38,55 +33,75 @@ class AirQualityPredictor:
         self.reverse_categories = {v: k for k, v in self.quality_categories.items()}
         
     def train_model(self):
-        """Train the Random Forest model"""
-        X, y = self.data_processor.prepare_training_data()
-        # Convert categorical labels to numeric values
-        y_numeric = np.array([self.quality_categories[cat] for cat in y])
-        self.model.fit(X, y_numeric)
-        self.is_trained = True
-        return self.model
+        """Train the model with preprocessed data"""
+        try:
+            X, y = self.data_processor.prepare_training_data()
+            if X is not None and y is not None and len(X) > 0 and len(y) > 0:
+                # Convert categorical labels to numeric values
+                quality_map = {
+                    'Good': 0,
+                    'Moderate': 1,
+                    'Poor': 2,
+                    'Hazardous': 3
+                }
+                y_numeric = np.array([quality_map[cat] for cat in y])
+                
+                # Scale features
+                X_scaled = self.scaler.fit_transform(X)
+                self.model.fit(X_scaled, y_numeric)
+                self.is_trained = True
+                return True
+            return False
+        except Exception as e:
+            print(f"Error training model: {str(e)}")
+            return False
     
     def predict_air_quality(self, features):
-        """Predict air quality for given features"""
+        """Make predictions for new data"""
         if not self.is_trained:
-            self.train_model()
-            
-        # Scale features
-        scaled_features = self.scaler.fit_transform(features)
-        
-        # Make prediction
-        prediction = self.model.predict(scaled_features)
-        probabilities = self.model.predict_proba(scaled_features)
-        
-        # Convert numeric prediction to category
-        predicted_category = self.reverse_categories[prediction[0]]
-        
-        return predicted_category, probabilities[0]
-    
-    def get_ai_insights(self, data):
-        """Get AI-powered insights using Gemini"""
-        if not self.gemini_model:
-            return "AI insights are currently unavailable. Please check the API configuration."
-            
-        prompt = f"""
-        Analyze this air quality data and provide insights:
-        Temperature: {data['temperature']}°C
-        Humidity: {data['humidity']}%
-        PM2.5: {data['pm25']} µg/m³
-        PM10: {data['pm10']} µg/m³
-        NO2: {data['no2']} ppb
-        SO2: {data['so2']} ppb
-        CO: {data['co']} ppm
-        Industrial Proximity: {data['industrial_proximity']} km
-        Population Density: {data['population_density']} people/km²
-        
-        Please provide:
-        1. Main pollution sources
-        2. Health risks
-        3. Recommendations for improvement
-        """
+            if not self.train_model():
+                return None, None
         
         try:
+            # Scale features
+            features_scaled = self.scaler.transform(features)
+            
+            # Make prediction
+            prediction = self.model.predict(features_scaled)
+            probabilities = self.model.predict_proba(features_scaled)
+            
+            # Convert numeric prediction back to category
+            quality_map = {
+                0: 'Good',
+                1: 'Moderate',
+                2: 'Poor',
+                3: 'Hazardous'
+            }
+            prediction = quality_map[prediction[0]]
+            
+            return prediction, probabilities[0]
+        except Exception as e:
+            print(f"Error making prediction: {str(e)}")
+            return None, None
+    
+    def get_ai_insights(self, features, prediction, probabilities):
+        """Generate AI insights using Gemini"""
+        if not self.gemini_model:
+            return "AI insights are currently unavailable. Please check the API configuration."
+        
+        try:
+            prompt = f"""
+            Based on the following air quality data and prediction:
+            Features: {features}
+            Predicted Air Quality: {prediction}
+            Probabilities: {probabilities}
+            
+            Please provide:
+            1. A brief explanation of the prediction
+            2. Health implications
+            3. Recommended actions
+            """
+            
             response = self.gemini_model.generate_content(prompt)
             return response.text
         except Exception as e:
